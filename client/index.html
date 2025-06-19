@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VulnArena - CTF Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <i class="fas fa-shield-alt"></i>
+                    VulnArena
+                </h1>
+                <p class="subtitle">Capture The Flag Platform</p>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="nav-content">
+                <button class="nav-btn active" data-filter="all">
+                    <i class="fas fa-globe"></i>
+                    All Challenges
+                </button>
+                <button class="nav-btn" data-filter="Crypto">
+                    <i class="fas fa-key"></i>
+                    Crypto
+                </button>
+                <button class="nav-btn" data-filter="Web">
+                    <i class="fas fa-globe"></i>
+                    Web
+                </button>
+                <button class="nav-btn" data-filter="Forensics">
+                    <i class="fas fa-search"></i>
+                    Forensics
+                </button>
+                <button class="nav-btn" data-filter="Reversing">
+                    <i class="fas fa-code"></i>
+                    Reversing
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Loading State -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading challenges...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="error hidden">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error Loading Challenges</h3>
+                <p id="error-message">Failed to load challenges from the server.</p>
+                <button onclick="loadChallenges()" class="btn btn-primary">
+                    <i class="fas fa-redo"></i>
+                    Retry
+                </button>
+            </div>
+
+            <!-- Challenges Grid -->
+            <div id="challenges" class="challenges-grid hidden">
+                <!-- Challenges will be populated here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty" class="empty hidden">
+                <i class="fas fa-inbox"></i>
+                <h3>No Challenges Found</h3>
+                <p>No challenges match your current filter.</p>
+            </div>
+        </main>
+
+        <!-- Challenge Modal -->
+        <div id="challenge-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-title">Challenge Title</h2>
+                    <button class="modal-close" onclick="closeModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="challenge-info">
+                        <div class="info-row">
+                            <span class="label">Category:</span>
+                            <span id="modal-category" class="value"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Difficulty:</span>
+                            <span id="modal-difficulty" class="value"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Points:</span>
+                            <span id="modal-points" class="value"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Author:</span>
+                            <span id="modal-author" class="value"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="challenge-description">
+                        <h3>Description</h3>
+                        <p id="modal-description"></p>
+                    </div>
+
+                    <div class="challenge-hint">
+                        <h3>Hint</h3>
+                        <p id="modal-hint"></p>
+                    </div>
+
+                    <div class="challenge-files">
+                        <h3>Files</h3>
+                        <div id="modal-files" class="files-list">
+                            <!-- Files will be populated here -->
+                        </div>
+                    </div>
+
+                    <div class="challenge-tags">
+                        <h3>Tags</h3>
+                        <div id="modal-tags" class="tags-list">
+                            <!-- Tags will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

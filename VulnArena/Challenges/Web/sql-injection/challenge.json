@@ -1,0 +1,23 @@
+{
+  "title": "SQL Injection Basics",
+  "description": "A simple web application with a vulnerable login form. Find the admin password using SQL injection techniques.",
+  "category": "Web",
+  "flag": "flag{sql_injection_master_2024}",
+  "difficulty": "Easy",
+  "points": 100,
+  "requiresContainer": true,
+  "containerImage": "vulnarena/sql-injection:latest",
+  "containerPort": 8080,
+  "tags": ["web", "sql-injection", "authentication"],
+  "author": "VulnArena Team",
+  "createdAt": "2024-01-01T00:00:00Z",
+  "isActive": true,
+  "solveCount": 0,
+  "hint": "Try using single quotes in the username field. What happens when you input: admin' --",
+  "files": ["app.py", "database.sql"],
+  "metadata": {
+    "vulnerability": "sql-injection",
+    "language": "python",
+    "framework": "flask"
+  }
+} 

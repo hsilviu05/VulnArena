@@ -1,0 +1,20 @@
+{
+  "title": "Caesar Cipher",
+  "description": "Decrypt the message using a simple Caesar cipher. The key is a number between 1 and 25.",
+  "category": "Crypto",
+  "flag": "flag{caesar_cipher_solved_2024}",
+  "difficulty": "Easy",
+  "points": 50,
+  "requiresContainer": false,
+  "tags": ["crypto", "classical", "substitution"],
+  "author": "VulnArena Team",
+  "createdAt": "2024-01-01T00:00:00Z",
+  "isActive": true,
+  "solveCount": 0,
+  "hint": "Try shifting each letter by different amounts. The most common letter in English is 'E'.",
+  "files": ["encrypted.txt", "hint.txt"],
+  "metadata": {
+    "cipher": "caesar",
+    "key_range": "1-25"
+  }
+} 

@@ -1,0 +1,20 @@
+{
+  "title": "Deleted File Recovery",
+  "description": "A file was accidentally deleted from the system. Use forensics tools to recover it and find the hidden message.",
+  "category": "Forensics",
+  "flag": "flag{deleted_file_recovered_2024}",
+  "difficulty": "Medium",
+  "points": 150,
+  "requiresContainer": false,
+  "tags": ["forensics", "file-recovery", "deleted-files"],
+  "author": "VulnArena Team",
+  "createdAt": "2024-01-01T00:00:00Z",
+  "isActive": true,
+  "solveCount": 0,
+  "hint": "Deleted files are not immediately erased from disk. Look for file signatures and use appropriate recovery tools.",
+  "files": ["recovery.bin", "notes.txt"],
+  "metadata": {
+    "file_system": "ext4",
+    "recovery_method": "file_carving"
+  }
+} 

@@ -1,0 +1,5 @@
+Forensics Challenge Notes:
+- A file was accidentally deleted from the system
+- Use tools like PhotoRec, TestDisk, or similar recovery software
+- Look for file signatures and headers
+- The deleted file contains the flag 

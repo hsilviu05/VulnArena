@@ -1,0 +1,10 @@
+#!/bin/bash
+# Simple crackme challenge
+echo "Welcome to the crackme challenge!"
+echo "Enter the password:"
+read password
+
+if [ "$password" = "secret123" ]; then
+    echo "Congratulations! You found the flag: flag{simple_crackme_solved_2024}"
+else
+    echo "Wrong password. Try again!" 

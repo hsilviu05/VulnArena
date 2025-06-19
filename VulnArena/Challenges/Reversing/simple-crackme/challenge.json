@@ -1,0 +1,21 @@
+{
+  "title": "Simple Crackme",
+  "description": "Reverse engineer this simple binary to understand how it validates the password and find the correct input.",
+  "category": "Reversing",
+  "flag": "flag{simple_crackme_solved_2024}",
+  "difficulty": "Medium",
+  "points": 200,
+  "requiresContainer": false,
+  "tags": ["reversing", "binary", "crackme", "x86"],
+  "author": "VulnArena Team",
+  "createdAt": "2024-01-01T00:00:00Z",
+  "isActive": true,
+  "solveCount": 0,
+  "hint": "Use a disassembler like IDA Pro, Ghidra, or objdump. Look for string comparisons and conditional jumps.",
+  "files": ["crackme", "source.c"],
+  "metadata": {
+    "architecture": "x86_64",
+    "platform": "linux",
+    "tools": "ida, ghidra, objdump"
+  }
+} 
