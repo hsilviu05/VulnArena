@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VulnArena.Core;
 using VulnArena.Models;
@@ -15,6 +16,8 @@ public class ChallengesController : ControllerBase
     private readonly ScoreManager _scoreManager;
     private readonly SandboxService _sandboxService;
     private readonly AuthService _authService;
+    private readonly LoggingService _loggingService;
+    private readonly DBService _dbService;
 
     public ChallengesController(
         ILogger<ChallengesController> logger,
@@ -22,7 +25,9 @@ public class ChallengesController : ControllerBase
         FlagValidator flagValidator,
         ScoreManager scoreManager,
         SandboxService sandboxService,
-        AuthService authService)
+        AuthService authService,
+        LoggingService loggingService,
+        DBService dbService)
     {
         _logger = logger;
         _challengeManager = challengeManager;
@@ -30,6 +35,8 @@ public class ChallengesController : ControllerBase
         _scoreManager = scoreManager;
         _sandboxService = sandboxService;
         _authService = authService;
+        _loggingService = loggingService;
+        _dbService = dbService;
     }
 
     [HttpGet]
@@ -37,6 +44,11 @@ public class ChallengesController : ControllerBase
     {
         try
         {
+            // Log the request
+            await _loggingService.LogSystemEventAsync("CHALLENGES_REQUESTED", 
+                $"Challenges requested for category: {category ?? "all"}", 
+                Models.LogLevel.Information);
+
             IEnumerable<Challenge> challenges;
             if (!string.IsNullOrEmpty(category))
             {
@@ -65,11 +77,19 @@ public class ChallengesController : ControllerBase
                 c.Files
             });
 
+            // Log successful response
+            await _loggingService.LogSystemEventAsync("CHALLENGES_RETURNED", 
+                $"Returned {safeChallenges.Count()} challenges", 
+                Models.LogLevel.Information);
+
             return Ok(safeChallenges);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting challenges");
+            await _loggingService.LogSystemEventAsync("CHALLENGES_ERROR", 
+                $"Error getting challenges: {ex.Message}", 
+                Models.LogLevel.Error);
             return StatusCode(500, "Internal server error");
         }
     }
@@ -234,7 +254,7 @@ public class ChallengesController : ControllerBase
 
             if (result.IsRateLimited)
             {
-                return StatusCode(429, new { Message = result.Message });
+                return StatusCode(429, new { message = result.Message, isRateLimited = true });
             }
 
             if (result.IsValid && !result.IsAlreadySolved)
@@ -250,10 +270,11 @@ public class ChallengesController : ControllerBase
 
             return Ok(new
             {
-                IsValid = result.IsValid,
-                Message = result.Message,
-                Points = result.Points,
-                IsAlreadySolved = result.IsAlreadySolved
+                isValid = result.IsValid,
+                message = result.Message,
+                points = result.Points,
+                isAlreadySolved = result.IsAlreadySolved,
+                isRateLimited = result.IsRateLimited
             });
         }
         catch (Exception ex)
@@ -395,22 +416,81 @@ public class ChallengesController : ControllerBase
     [HttpGet("{id}/files/{filename}")]
     public async Task<IActionResult> DownloadFile(string id, string filename)
     {
-        var challenge = await _challengeManager.GetChallengeAsync(id);
-        if (challenge == null)
-            return NotFound("Challenge not found");
+        try
+        {
+            var challenge = await _challengeManager.GetChallengeAsync(id);
+            if (challenge == null)
+            {
+                return NotFound("Challenge not found");
+            }
 
-        // Security: Only allow files listed in challenge.Files
-        if (!challenge.Files.Contains(filename))
-            return NotFound("File not found for this challenge");
+            // Try to get user from session
+            string userId = "Anonymous";
+            var sessionToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+            if (!string.IsNullOrEmpty(sessionToken))
+            {
+                var user = await _authService.ValidateSessionAsync(sessionToken);
+                if (user != null)
+                {
+                    userId = user.Id;
+                }
+            }
 
-        var filePath = Path.Combine(challenge.Path, filename);
-        var absoluteFilePath = Path.GetFullPath(filePath);
-        
-        if (!System.IO.File.Exists(absoluteFilePath))
-            return NotFound("File does not exist");
+            // Log file download
+            await _loggingService.LogFileDownloadAsync(userId, id, filename);
 
-        var contentType = "application/octet-stream";
-        return PhysicalFile(absoluteFilePath, contentType, filename);
+            var filePath = Path.Combine(challenge.Path, filename);
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound("File not found");
+            }
+
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            return File(fileBytes, "application/octet-stream", filename);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error downloading file {Filename} for challenge {ChallengeId}", filename, id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    [HttpGet("scoreboard")]
+    public async Task<ActionResult<IEnumerable<object>>> GetScoreboard()
+    {
+        try
+        {
+            // Get user from session for validation
+            var sessionToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+            if (string.IsNullOrEmpty(sessionToken))
+            {
+                return Unauthorized("Authentication required");
+            }
+
+            var user = await _authService.ValidateSessionAsync(sessionToken);
+            if (user == null)
+            {
+                return Unauthorized("Invalid session");
+            }
+
+            // Get scoreboard data from database
+            var scoreboard = await _dbService.GetScoreboardAsync();
+            
+            // Log the request
+            await _loggingService.LogSystemEventAsync("SCOREBOARD_REQUESTED", 
+                $"Scoreboard requested by user: {user.Username}", 
+                Models.LogLevel.Information);
+
+            return Ok(scoreboard);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting scoreboard");
+            await _loggingService.LogSystemEventAsync("SCOREBOARD_ERROR", 
+                $"Error getting scoreboard: {ex.Message}", 
+                Models.LogLevel.Error);
+            return StatusCode(500, "Internal server error");
+        }
     }
 }
 

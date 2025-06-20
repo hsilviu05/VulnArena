@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - VulnArena</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Notification Container -->
+    <div id="notification-container"></div>
+    
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <a href="index.html" class="logo-link">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>VulnArena</span>
+                </a>
+            </div>
+            <div id="userInfo" class="user-info">
+                <!-- User info will be populated by script.js -->
+            </div>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-secondary">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+                <a href="logs.html" class="btn btn-secondary">
+                    <i class="fas fa-list"></i>
+                    Logs
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="leaderboard-container">
+            <!-- Hero Section -->
+            <div class="leaderboard-hero">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        <i class="fas fa-trophy"></i>
+                        Global Leaderboard
+                    </h1>
+                    <p class="hero-subtitle">Compete with the best security researchers and climb the ranks</p>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalUsers">1,247</span>
+                            <span class="stat-label">Active Users</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalChallenges">156</span>
+                            <span class="stat-label">Challenges Solved</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalPoints">89,432</span>
+                            <span class="stat-label">Total Points</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters and Controls -->
+            <div class="leaderboard-controls">
+                <div class="controls-left">
+                    <div class="filter-group">
+                        <label class="filter-label">Category</label>
+                        <select id="categoryFilter" class="filter-select">
+                            <option value="">All Categories</option>
+                            <option value="Crypto">Cryptography</option>
+                            <option value="Web">Web Security</option>
+                            <option value="Forensics">Digital Forensics</option>
+                            <option value="Reversing">Reverse Engineering</option>
+                            <option value="Pwn">Binary Exploitation</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Time Period</label>
+                        <select id="timeFilter" class="filter-select">
+                            <option value="all">All Time</option>
+                            <option value="month">This Month</option>
+                            <option value="week">This Week</option>
+                            <option value="today">Today</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="controls-right">
+                    <button class="btn btn-primary" onclick="vulnArenaUI.loadLeaderboard()">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                    <button class="btn btn-secondary" onclick="vulnArenaUI.toggleLeaderboardView()">
+                        <i class="fas fa-th-large"></i>
+                        Toggle View
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top 3 Podium -->
+            <div class="podium-section">
+                <div class="podium">
+                    <div class="podium-place second-place">
+                        <div class="podium-avatar">
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=alice&backgroundColor=b6e3f4" alt="Alice">
+                        </div>
+                        <div class="podium-info">
+                            <h3 class="podium-name">Alice_Crypto</h3>
+                            <p class="podium-score">2,847 pts</p>
+                            <div class="podium-badge">
+                                <i class="fas fa-medal"></i>
+                                2nd Place
+                            </div>
+                        </div>
+                    </div>
+                    <div class="podium-place first-place">
+                        <div class="podium-avatar">
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=bob&backgroundColor=ffdfbf" alt="Bob">
+                        </div>
+                        <div class="podium-info">
+                            <h3 class="podium-name">Bob_Hacker</h3>
+                            <p class="podium-score">3,156 pts</p>
+                            <div class="podium-badge">
+                                <i class="fas fa-crown"></i>
+                                1st Place
+                            </div>
+                        </div>
+                    </div>
+                    <div class="podium-place third-place">
+                        <div class="podium-avatar">
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=charlie&backgroundColor=d1d4f9" alt="Charlie">
+                        </div>
+                        <div class="podium-info">
+                            <h3 class="podium-name">Charlie_Pwn</h3>
+                            <p class="podium-score">2,634 pts</p>
+                            <div class="podium-badge">
+                                <i class="fas fa-medal"></i>
+                                3rd Place
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard Table -->
+            <div class="leaderboard-table-container">
+                <div class="table-header">
+                    <h3 class="table-title">Complete Rankings</h3>
+                    <div class="table-actions">
+                        <button class="btn btn-sm" onclick="vulnArenaUI.exportLeaderboard()">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                    </div>
+                </div>
+                <div class="leaderboard-table">
+                    <div class="table-header-row">
+                        <div class="header-cell rank">Rank</div>
+                        <div class="header-cell user">User</div>
+                        <div class="header-cell score">Score</div>
+                        <div class="header-cell challenges">Challenges</div>
+                        <div class="header-cell categories">Categories</div>
+                        <div class="header-cell streak">Streak</div>
+                        <div class="header-cell last-active">Last Active</div>
+                    </div>
+                    <div class="table-content" id="leaderboardTable">
+                        <!-- Leaderboard entries will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Stats Section -->
+            <div class="user-stats-section" id="userStatsSection" style="display: none;">
+                <div class="stats-container">
+                    <h3 class="stats-title">Your Performance</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="userRank">#42</div>
+                                <div class="stat-label">Your Rank</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="userScore">1,247</div>
+                                <div class="stat-label">Total Score</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-flag-checkered"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="userChallenges">23</div>
+                                <div class="stat-label">Challenges Solved</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-fire"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="userStreak">7</div>
+                                <div class="stat-label">Day Streak</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loadingSpinner">
+        <div class="spinner">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+        </div>
+        <p>Loading leaderboard...</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

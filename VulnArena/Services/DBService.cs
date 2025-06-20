@@ -619,7 +619,8 @@ public class DBService
                 ChallengeId = reader.GetString(reader.GetOrdinal("ChallengeId")),
                 Points = reader.GetInt32(reader.GetOrdinal("PointsAwarded")),
                 SolvedAt = DateTime.Parse(reader.GetString(reader.GetOrdinal("SolvedAt"))),
-                StartedAt = reader.IsDBNull(reader.GetOrdinal("StartedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("StartedAt")))
+                StartedAt = reader.IsDBNull(reader.GetOrdinal("StartedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("StartedAt"))),
+                Category = reader.IsDBNull(reader.GetOrdinal("Category")) ? null : reader.GetString(reader.GetOrdinal("Category"))
             });
         }
 
@@ -632,11 +633,17 @@ public class DBService
         await connection.OpenAsync();
 
         var command = @"
-            SELECT s.ChallengeId, s.PointsAwarded, s.SubmittedAt as SolvedAt, cs.StartedAt, c.Category
+            SELECT 
+                s.ChallengeId,
+                c.Points,
+                s.SubmittedAt as SolvedAt,
+                cs.StartedAt,
+                c.Category
             FROM Submissions s
             JOIN Challenges c ON s.ChallengeId = c.Id
             LEFT JOIN ChallengeStarts cs ON s.ChallengeId = cs.ChallengeId AND s.UserId = cs.UserId
-            WHERE s.UserId = @UserId AND s.IsCorrect = 1";
+            WHERE s.UserId = @UserId 
+            AND s.IsCorrect = 1";
 
         if (!string.IsNullOrEmpty(category))
         {
@@ -647,6 +654,7 @@ public class DBService
 
         using var cmd = new SqliteCommand(command, connection);
         cmd.Parameters.AddWithValue("@UserId", userId);
+        
         if (!string.IsNullOrEmpty(category))
         {
             cmd.Parameters.AddWithValue("@Category", category);
@@ -654,12 +662,13 @@ public class DBService
 
         var solvedChallenges = new List<SolvedChallenge>();
         using var reader = await cmd.ExecuteReaderAsync();
+        
         while (await reader.ReadAsync())
         {
             solvedChallenges.Add(new SolvedChallenge
             {
                 ChallengeId = reader.GetString(reader.GetOrdinal("ChallengeId")),
-                Points = reader.GetInt32(reader.GetOrdinal("PointsAwarded")),
+                Points = reader.GetInt32(reader.GetOrdinal("Points")),
                 SolvedAt = DateTime.Parse(reader.GetString(reader.GetOrdinal("SolvedAt"))),
                 StartedAt = reader.IsDBNull(reader.GetOrdinal("StartedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("StartedAt"))),
                 Category = reader.IsDBNull(reader.GetOrdinal("Category")) ? null : reader.GetString(reader.GetOrdinal("Category"))
@@ -667,6 +676,40 @@ public class DBService
         }
 
         return solvedChallenges;
+    }
+
+    public async Task<IEnumerable<object>> GetScoreboardAsync()
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var command = @"
+            SELECT 
+                u.Username,
+                CAST(u.TotalPoints as INTEGER) as TotalPoints,
+                CAST(u.SolvedChallenges as INTEGER) as SolvedChallenges,
+                CAST(ROW_NUMBER() OVER (ORDER BY u.TotalPoints DESC, u.SolvedChallenges DESC) as INTEGER) as Rank
+            FROM Users u
+            WHERE u.IsActive = 1
+            ORDER BY u.TotalPoints DESC, u.SolvedChallenges DESC
+            LIMIT 100";
+
+        using var cmd = new SqliteCommand(command, connection);
+        var scoreboard = new List<object>();
+        
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            scoreboard.Add(new
+            {
+                Username = reader.GetString(reader.GetOrdinal("Username")),
+                TotalPoints = reader.GetInt32(reader.GetOrdinal("TotalPoints")),
+                SolvedChallenges = reader.GetInt32(reader.GetOrdinal("SolvedChallenges")),
+                Rank = reader.GetInt32(reader.GetOrdinal("Rank"))
+            });
+        }
+
+        return scoreboard;
     }
 
     // Additional methods for LoggingService
@@ -760,10 +803,34 @@ public class DBService
         return await cmd.ExecuteNonQueryAsync();
     }
 
+    public async Task RecordLogEntryAsync(LogEntry logEntry)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var command = @"
+            INSERT INTO LogEntries (Id, EventType, UserId, ChallengeId, Details, Timestamp, IpAddress, UserAgent, Level, Metadata)
+            VALUES (@Id, @EventType, @UserId, @ChallengeId, @Details, @Timestamp, @IpAddress, @UserAgent, @Level, @Metadata)";
+
+        using var cmd = new SqliteCommand(command, connection);
+        cmd.Parameters.AddWithValue("@Id", logEntry.Id);
+        cmd.Parameters.AddWithValue("@EventType", logEntry.EventType);
+        cmd.Parameters.AddWithValue("@UserId", logEntry.UserId);
+        cmd.Parameters.AddWithValue("@ChallengeId", logEntry.ChallengeId ?? (object)DBNull.Value);
+        cmd.Parameters.AddWithValue("@Details", logEntry.Details ?? (object)DBNull.Value);
+        cmd.Parameters.AddWithValue("@Timestamp", logEntry.Timestamp.ToString("O"));
+        cmd.Parameters.AddWithValue("@IpAddress", logEntry.IpAddress);
+        cmd.Parameters.AddWithValue("@UserAgent", logEntry.UserAgent ?? (object)DBNull.Value);
+        cmd.Parameters.AddWithValue("@Level", logEntry.Level.ToString());
+        cmd.Parameters.AddWithValue("@Metadata", System.Text.Json.JsonSerializer.Serialize(logEntry.Metadata));
+
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     // Helper methods for mapping
     private User MapUserFromReader(SqliteDataReader reader)
     {
-        return new User
+        var user = new User
         {
             Id = reader.GetString(reader.GetOrdinal("Id")),
             Username = reader.GetString(reader.GetOrdinal("Username")),
@@ -779,14 +846,30 @@ public class DBService
             Avatar = reader.IsDBNull(reader.GetOrdinal("Avatar")) ? null : reader.GetString(reader.GetOrdinal("Avatar")),
             Bio = reader.IsDBNull(reader.GetOrdinal("Bio")) ? null : reader.GetString(reader.GetOrdinal("Bio")),
             Preferences = reader.IsDBNull(reader.GetOrdinal("Preferences")) ? new Dictionary<string, string>() : 
-                         System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(reader.GetOrdinal("Preferences"))) ?? new Dictionary<string, string>(),
-            UpdatedAt = reader.IsDBNull(reader.GetOrdinal("UpdatedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("UpdatedAt")))
+                         System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(reader.GetOrdinal("Preferences"))) ?? new Dictionary<string, string>()
         };
+
+        // Check if UpdatedAt column exists
+        try
+        {
+            var updatedAtOrdinal = reader.GetOrdinal("UpdatedAt");
+            if (!reader.IsDBNull(updatedAtOrdinal))
+            {
+                user.UpdatedAt = DateTime.Parse(reader.GetString(updatedAtOrdinal));
+            }
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // UpdatedAt column doesn't exist, leave it as null
+            user.UpdatedAt = null;
+        }
+
+        return user;
     }
 
     private Challenge MapChallengeFromReader(SqliteDataReader reader)
     {
-        return new Challenge
+        var challenge = new Challenge
         {
             Id = reader.GetString(reader.GetOrdinal("Id")),
             Title = reader.GetString(reader.GetOrdinal("Title")),
@@ -804,7 +887,6 @@ public class DBService
                    System.Text.Json.JsonSerializer.Deserialize<List<string>>(reader.GetString(reader.GetOrdinal("Tags"))) ?? new List<string>(),
             Author = reader.IsDBNull(reader.GetOrdinal("Author")) ? null : reader.GetString(reader.GetOrdinal("Author")),
             CreatedAt = DateTime.Parse(reader.GetString(reader.GetOrdinal("CreatedAt"))),
-            UpdatedAt = reader.IsDBNull(reader.GetOrdinal("UpdatedAt")) ? null : DateTime.Parse(reader.GetString(reader.GetOrdinal("UpdatedAt"))),
             IsActive = reader.GetInt32(reader.GetOrdinal("IsActive")) == 1,
             SolveCount = reader.GetInt32(reader.GetOrdinal("SolveCount")),
             Hint = reader.IsDBNull(reader.GetOrdinal("Hint")) ? null : reader.GetString(reader.GetOrdinal("Hint")),
@@ -813,6 +895,23 @@ public class DBService
             Metadata = reader.IsDBNull(reader.GetOrdinal("Metadata")) ? new Dictionary<string, string>() : 
                       System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(reader.GetOrdinal("Metadata"))) ?? new Dictionary<string, string>()
         };
+
+        // Check if UpdatedAt column exists
+        try
+        {
+            var updatedAtOrdinal = reader.GetOrdinal("UpdatedAt");
+            if (!reader.IsDBNull(updatedAtOrdinal))
+            {
+                challenge.UpdatedAt = DateTime.Parse(reader.GetString(updatedAtOrdinal));
+            }
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // UpdatedAt column doesn't exist, leave it as null
+            challenge.UpdatedAt = null;
+        }
+
+        return challenge;
     }
 
     private Submission MapSubmissionFromReader(SqliteDataReader reader)

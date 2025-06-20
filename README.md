@@ -66,8 +66,8 @@ A modern, self-hosted Capture The Flag (CTF) platform built with ASP.NET Core an
    - Or serve it with a local web server
 
 4. **🔗 Access the API**
-   - Backend: `http://localhost:5027`
-   - API Documentation: `http://localhost:5027/swagger`
+   - Backend: `http://localhost:5028`
+   - API Documentation: `http://localhost:5028/swagger`
 
 ## 🏗️ Project Structure
 
@@ -169,8 +169,10 @@ dotnet VulnArena.dll
 ### 🐳 Docker (Optional)
 ```bash
 docker build -t vulnarena .
-docker run -p 5027:5027 vulnarena
+docker run -p 5028:5028 vulnarena
 ```
+
+The application will be available at `http://localhost:5028`.
 
 ## 🤝 Contributing
 

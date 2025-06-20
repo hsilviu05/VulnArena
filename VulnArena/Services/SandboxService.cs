@@ -93,7 +93,7 @@ public class SandboxService
             _activeSandboxes[sandboxKey] = sandbox;
 
             // Log the sandbox creation
-            await _loggingService.LogEventAsync("SANDBOX_STARTED", userId, challengeId, $"Container: {containerId}, Port: {sandbox.Port}");
+            await _loggingService.LogSystemEventAsync("SANDBOX_STARTED", $"Container: {containerId}, Port: {sandbox.Port}", Models.LogLevel.Information);
 
             _logger.LogInformation("Started sandbox {SandboxId} for challenge {ChallengeId} and user {UserId}", 
                 sandbox.Id, challengeId, userId);
@@ -136,7 +136,7 @@ public class SandboxService
             _activeSandboxes.Remove(sandboxKey);
 
             // Log the sandbox stop
-            await _loggingService.LogEventAsync("SANDBOX_STOPPED", userId, challengeId, $"Container: {sandbox.ContainerId}");
+            await _loggingService.LogSystemEventAsync("SANDBOX_STOPPED", $"Container: {sandbox.ContainerId}", Models.LogLevel.Information);
 
             _logger.LogInformation("Stopped sandbox {SandboxId} for challenge {ChallengeId} and user {UserId}", 
                 sandbox.Id, challengeId, userId);
@@ -174,8 +174,7 @@ public class SandboxService
             sandbox.ExpiresAt = sandbox.ExpiresAt.Add(extension);
             sandbox.ExtensionCount++;
 
-            await _loggingService.LogEventAsync("SANDBOX_EXTENDED", userId, challengeId, 
-                $"Extended by {extension.TotalMinutes} minutes, new expiry: {sandbox.ExpiresAt}");
+            await _loggingService.LogSystemEventAsync("SANDBOX_EXTENDED", $"Extended by {extension.TotalMinutes} minutes, new expiry: {sandbox.ExpiresAt}", Models.LogLevel.Information);
 
             _logger.LogInformation("Extended sandbox {SandboxId} by {Extension} minutes", sandbox.Id, extension.TotalMinutes);
             return true;
@@ -271,8 +270,7 @@ public class SandboxService
                 sandbox.StoppedAt = DateTime.UtcNow;
 
                 // Log the cleanup
-                await _loggingService.LogEventAsync("SANDBOX_EXPIRED", sandbox.UserId, sandbox.ChallengeId, 
-                    $"Container: {sandbox.ContainerId}, Runtime: {DateTime.UtcNow - sandbox.CreatedAt}");
+                await _loggingService.LogSystemEventAsync("SANDBOX_EXPIRED", $"Container: {sandbox.ContainerId}, Runtime: {DateTime.UtcNow - sandbox.CreatedAt}", Models.LogLevel.Information);
 
                 // Remove from active sandboxes
                 _activeSandboxes.Remove(kvp.Key);

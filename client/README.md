@@ -13,7 +13,7 @@ A modern, responsive web interface for the VulnArena CTF platform.
 
 ## Usage
 
-1. **Start the Backend**: Make sure your VulnArena backend is running on `http://localhost:5027`
+1. **Start the Backend**: Make sure your VulnArena backend is running on `http://localhost:5028`
 
 2. **Open the UI**: Open `index.html` in your web browser
    - You can use any local web server or simply double-click the file
@@ -60,6 +60,9 @@ You can easily customize the UI by modifying:
 
 ## Troubleshooting
 
-- **Challenges not loading**: Make sure the backend is running on port 5027
-- **File downloads failing**: Check that the backend file endpoints are working
-- **UI not responsive**: Ensure you're using a modern browser with CSS Grid support 
+- **Challenges not loading**: Make sure the backend is running on port 5028 and that the `apiBaseUrl` in `script.js` is correctly configured. Check the browser's developer console for any network errors.
+- **Styling issues**: Clear your browser cache to ensure the latest version of `styles.css` is being used.
+
+## Prerequisites
+
+1. **Web Server**: You need a local web server to serve the client files. A simple one is `http-server` for Node.js. 

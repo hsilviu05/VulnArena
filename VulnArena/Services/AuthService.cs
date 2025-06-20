@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using VulnArena.Models;
+using BCrypt.Net;
 
 namespace VulnArena.Services;
 
@@ -9,7 +10,8 @@ public class AuthService
     private readonly ILogger<AuthService> _logger;
     private readonly DBService _dbService;
     private readonly LoggingService _loggingService;
-    private readonly Dictionary<string, UserSession> _activeSessions;
+    // Use static dictionary to ensure sessions persist across service instances
+    private static readonly Dictionary<string, UserSession> _activeSessions = new Dictionary<string, UserSession>();
 
     public AuthService(
         ILogger<AuthService> logger,
@@ -19,7 +21,10 @@ public class AuthService
         _logger = logger;
         _dbService = dbService;
         _loggingService = loggingService;
-        _activeSessions = new Dictionary<string, UserSession>();
+        
+        // Add diagnostic logging
+        _logger.LogInformation("AuthService instance created. Instance ID: {InstanceId}, Active sessions: {SessionCount}", 
+            GetHashCode(), _activeSessions.Count);
     }
 
     public async Task<AuthResult> RegisterAsync(string username, string email, string password)
@@ -51,8 +56,8 @@ public class AuthService
             }
 
             // Generate salt and hash password
-            var salt = GenerateSalt();
-            var passwordHash = HashPassword(password, salt);
+            var salt = BCrypt.Net.BCrypt.GenerateSalt();
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(password, salt);
 
             // Create user
             var user = new User
@@ -68,7 +73,7 @@ public class AuthService
             };
 
             await _dbService.CreateUserAsync(user);
-            await _loggingService.LogEventAsync("USER_REGISTERED", user.Id, null, $"Username: {username}");
+            await _loggingService.LogSystemEventAsync("USER_REGISTERED", $"Username: {username}", Models.LogLevel.Information);
 
             _logger.LogInformation("User registered: {Username}", username);
             return new AuthResult { Success = true, Message = "Registration successful.", User = user };
@@ -88,21 +93,20 @@ public class AuthService
             var user = await _dbService.GetUserByUsernameAsync(username);
             if (user == null)
             {
-                await _loggingService.LogEventAsync("LOGIN_FAILED", "unknown", null, $"Username: {username}, Reason: User not found");
+                await _loggingService.LogSystemEventAsync("LOGIN_FAILED", $"Username: {username}, Reason: User not found", Models.LogLevel.Warning);
                 return new AuthResult { Success = false, Message = "Invalid username or password." };
             }
 
             // Verify password
-            var passwordHash = HashPassword(password, user.Salt);
-            if (passwordHash != user.PasswordHash)
+            if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             {
-                await _loggingService.LogEventAsync("LOGIN_FAILED", user.Id, null, $"Username: {username}, Reason: Invalid password");
+                await _loggingService.LogSystemEventAsync("LOGIN_FAILED", $"Username: {username}, Reason: Invalid password", Models.LogLevel.Warning);
                 return new AuthResult { Success = false, Message = "Invalid username or password." };
             }
 
             if (!user.IsActive)
             {
-                await _loggingService.LogEventAsync("LOGIN_FAILED", user.Id, null, $"Username: {username}, Reason: Account disabled");
+                await _loggingService.LogSystemEventAsync("LOGIN_FAILED", $"Username: {username}, Reason: Account disabled", Models.LogLevel.Warning);
                 return new AuthResult { Success = false, Message = "Account is disabled." };
             }
 
@@ -123,7 +127,10 @@ public class AuthService
 
             _activeSessions[sessionToken] = session;
 
-            await _loggingService.LogEventAsync("LOGIN_SUCCESS", user.Id, null, $"Username: {username}");
+            _logger.LogInformation("Session created for user {Username}. Token: {SessionToken}. Total active sessions: {SessionCount}", 
+                username, sessionToken, _activeSessions.Count);
+
+            await _loggingService.LogSystemEventAsync("LOGIN_SUCCESS", $"Username: {username}", Models.LogLevel.Information);
 
             _logger.LogInformation("User logged in: {Username}", username);
             return new AuthResult 
@@ -147,7 +154,7 @@ public class AuthService
         {
             if (_activeSessions.Remove(sessionToken))
             {
-                await _loggingService.LogEventAsync("LOGOUT", "unknown", null, $"Session: {sessionToken}");
+                await _loggingService.LogSystemEventAsync("LOGOUT", $"Session: {sessionToken}", Models.LogLevel.Information);
                 _logger.LogInformation("User logged out: {SessionToken}", sessionToken);
                 return true;
             }
@@ -164,25 +171,42 @@ public class AuthService
     {
         try
         {
+            _logger.LogInformation("Validating session token: {SessionToken}. Active sessions count: {SessionCount}", 
+                sessionToken, _activeSessions.Count);
+            
+            // Log all active session tokens for debugging
+            var activeTokens = string.Join(", ", _activeSessions.Keys.Take(5));
+            _logger.LogInformation("Active session tokens (first 5): {ActiveTokens}", activeTokens);
+            
             if (!_activeSessions.TryGetValue(sessionToken, out var session))
             {
+                _logger.LogWarning("Session token not found in active sessions: {SessionToken}", sessionToken);
                 return null;
             }
 
             if (session.ExpiresAt < DateTime.UtcNow)
             {
+                _logger.LogInformation("Session expired for token: {SessionToken}", sessionToken);
                 _activeSessions.Remove(sessionToken);
                 return null;
             }
 
             var user = await _dbService.GetUserByIdAsync(session.UserId);
-            return user?.IsActive == true ? user : null;
+            var isValid = user?.IsActive == true;
+            _logger.LogInformation("Session validation result: {IsValid} for user: {UserId}", isValid, session.UserId);
+            return isValid ? user : null;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating session");
             return null;
         }
+    }
+
+    // Debug method to list all active sessions
+    public Dictionary<string, UserSession> GetAllActiveSessions()
+    {
+        return new Dictionary<string, UserSession>(_activeSessions);
     }
 
     public async Task<bool> ChangePasswordAsync(string userId, string currentPassword, string newPassword)
@@ -196,22 +220,21 @@ public class AuthService
             }
 
             // Verify current password
-            var currentHash = HashPassword(currentPassword, user.Salt);
-            if (currentHash != user.PasswordHash)
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
             {
                 return false;
             }
 
             // Generate new salt and hash
-            var newSalt = GenerateSalt();
-            var newHash = HashPassword(newPassword, newSalt);
+            var newSalt = BCrypt.Net.BCrypt.GenerateSalt();
+            var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword, newSalt);
 
             user.PasswordHash = newHash;
             user.Salt = newSalt;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _dbService.UpdateUserAsync(user);
-            await _loggingService.LogEventAsync("PASSWORD_CHANGED", userId, null, "Password changed successfully");
+            await _loggingService.LogSystemEventAsync("PASSWORD_CHANGED", $"Password changed successfully", Models.LogLevel.Information);
 
             _logger.LogInformation("Password changed for user: {UserId}", userId);
             return true;
@@ -225,22 +248,12 @@ public class AuthService
 
     private string GenerateSalt()
     {
-        var salt = new byte[32];
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(salt);
-        }
-        return Convert.ToBase64String(salt);
+        return BCrypt.Net.BCrypt.GenerateSalt();
     }
 
     private string HashPassword(string password, string salt)
     {
-        using (var sha256 = SHA256.Create())
-        {
-            var passwordBytes = Encoding.UTF8.GetBytes(password + salt);
-            var hashBytes = sha256.ComputeHash(passwordBytes);
-            return Convert.ToBase64String(hashBytes);
-        }
+        return BCrypt.Net.BCrypt.HashPassword(password, salt);
     }
 
     private string GenerateSessionToken()

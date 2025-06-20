@@ -13,11 +13,23 @@
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1 class="logo">
+                <div class="logo">
                     <i class="fas fa-shield-alt"></i>
-                    VulnArena
-                </h1>
-                <p class="subtitle">Capture The Flag Platform</p>
+                    <span>VulnArena</span>
+                </div>
+                <div id="userInfo" class="user-info">
+                    <!-- User info will be populated here -->
+                </div>
+                <div class="header-actions">
+                    <a href="logs.html" class="btn btn-secondary">
+                        <i class="fas fa-list"></i>
+                        Logs
+                    </a>
+                    <a href="leaderboard.html" class="btn btn-secondary">
+                        <i class="fas fa-trophy"></i>
+                        Leaderboard
+                    </a>
+                </div>
             </div>
         </header>
 
@@ -44,6 +56,10 @@
                     <i class="fas fa-code"></i>
                     Reversing
                 </button>
+                <a href="logs.html" class="nav-btn">
+                    <i class="fas fa-list-alt"></i>
+                    System Logs
+                </a>
             </div>
         </nav>
 
@@ -60,7 +76,7 @@
                 <i class="fas fa-exclamation-triangle"></i>
                 <h3>Error Loading Challenges</h3>
                 <p id="error-message">Failed to load challenges from the server.</p>
-                <button onclick="loadChallenges()" class="btn btn-primary">
+                <button onclick="vulnArenaUI.loadChallenges()" class="btn btn-primary">
                     <i class="fas fa-redo"></i>
                     Retry
                 </button>
@@ -84,58 +100,176 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h2 id="modal-title">Challenge Title</h2>
-                    <button class="modal-close" onclick="closeModal()">
+                    <button class="modal-close" onclick="vulnArenaUI.closeChallengeModal()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div class="challenge-info">
-                        <div class="info-row">
-                            <span class="label">Category:</span>
-                            <span id="modal-category" class="value"></span>
+                    <div class="modal-layout">
+                        <div class="modal-main-content">
+                            <div class="challenge-description">
+                                <h3>Description</h3>
+                                <p id="modal-description">A simple web application with a vulnerable login form. Find the admin password using SQL injection techniques.</p>
+                            </div>
+        
+                            <div class="flag-submission">
+                                <h3>Submit Flag</h3>
+                                <div class="flag-form">
+                                    <input type="text" id="flag-input" class="flag-input" placeholder="Enter flag here...">
+                                    <button id="submit-flag" class="btn btn-primary">
+                                        <i class="fas fa-flag"></i>
+                                        Submit Flag
+                                    </button>
+                                </div>
+                                <div id="flag-result" class="flag-result hidden">
+                                    <!-- Flag submission result will be shown here -->
+                                </div>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="label">Difficulty:</span>
-                            <span id="modal-difficulty" class="value"></span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Points:</span>
-                            <span id="modal-points" class="value"></span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Author:</span>
-                            <span id="modal-author" class="value"></span>
+                        <div class="modal-sidebar">
+                            <div class="challenge-info">
+                                <div class="info-row">
+                                    <span class="label">Category:</span>
+                                    <span id="modal-category" class="value">Web</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Difficulty:</span>
+                                    <span id="modal-difficulty" class="value">Easy</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Points:</span>
+                                    <span id="modal-points" class="value">100 points</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Author:</span>
+                                    <span id="modal-author" class="value">VulnArena Team</span>
+                                </div>
+                            </div>
+                            
+                            <div class="challenge-hint">
+                                <h3>Hint</h3>
+                                <p id="modal-hint">Try using single quotes in the username field. What happens when you input: admin' --</p>
+                            </div>
+        
+                            <div class="challenge-tags">
+                                <h3>Tags</h3>
+                                <div id="modal-tags" class="tags-list">
+                                    <!-- Tags will be populated here -->
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="challenge-description">
-                        <h3>Description</h3>
-                        <p id="modal-description"></p>
-                    </div>
-
-                    <div class="challenge-hint">
-                        <h3>Hint</h3>
-                        <p id="modal-hint"></p>
-                    </div>
-
                     <div class="challenge-files">
                         <h3>Files</h3>
                         <div id="modal-files" class="files-list">
                             <!-- Files will be populated here -->
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
 
-                    <div class="challenge-tags">
-                        <h3>Tags</h3>
-                        <div id="modal-tags" class="tags-list">
-                            <!-- Tags will be populated here -->
-                        </div>
+        <!-- Scoreboard Section -->
+        <div id="scoreboard" class="scoreboard-section hidden">
+            <div class="scoreboard-header">
+                <h2><i class="fas fa-trophy"></i> Leaderboard</h2>
+                <button class="close-scoreboard" onclick="vulnArenaUI.closeScoreboard()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="scoreboard-content">
+                <div id="scoreboard-loading" class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i> Loading leaderboard...
+                </div>
+                <div id="scoreboard-list" class="scoreboard-list hidden">
+                    <!-- Scoreboard entries will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Congratulations Modal -->
+        <div id="congratulations-modal" class="modal hidden">
+            <div class="modal-content congratulations-content">
+                <div class="congratulations-animation">
+                    <div class="confetti-container">
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                        <div class="confetti"></div>
+                    </div>
+                    <div class="trophy-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <h2 class="congratulations-title">Congratulations!</h2>
+                    <p class="congratulations-message">You solved the challenge!</p>
+                    <div class="points-earned">
+                        <span class="points-number">+<span id="earned-points">0</span></span>
+                        <span class="points-label">points earned</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="vulnArenaUI.closeCongratulations()">
+                        <i class="fas fa-check"></i>
+                        Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Welcome to VulnArena</h2>
+                    <button class="modal-close" onclick="vulnArenaUI.closeAuthModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" data-form="login">Login</button>
+                        <button class="auth-tab" data-form="register">Register</button>
+                    </div>
+                    <div id="login-form-container">
+                        <form id="login-form" class="auth-form">
+                            <div class="form-group">
+                                <input type="text" name="username" class="form-input" placeholder="Username" required>
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="form-group">
+                                <input type="password" name="password" class="form-input" placeholder="Password" required>
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </form>
+                        <form id="register-form" class="auth-form" style="display: none;">
+                            <div class="form-group">
+                                <input type="text" name="username" class="form-input" placeholder="Username" required="">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" name="email" class="form-input" placeholder="Email" required="">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="form-group">
+                                <input type="password" name="password" class="form-input" placeholder="Password" required="">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Register</button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
+        <div id="notification-container"></div>
+
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html> 

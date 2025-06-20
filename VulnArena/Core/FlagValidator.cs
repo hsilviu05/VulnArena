@@ -35,7 +35,7 @@ public class FlagValidator
             if (await IsRateLimitedAsync(userId))
             {
                 _logger.LogWarning("Rate limit exceeded for user {UserId}", userId);
-                await _loggingService.LogEventAsync("FLAG_SUBMISSION_RATE_LIMITED", userId, challengeId, submittedFlag);
+                await _loggingService.LogSystemEventAsync("FLAG_SUBMISSION_RATE_LIMITED", $"User: {userId}, Challenge: {challengeId}, Flag: {submittedFlag}", Models.LogLevel.Warning);
                 return new FlagValidationResult
                 {
                     IsValid = false,
@@ -85,15 +85,23 @@ public class FlagValidator
             await _dbService.RecordSubmissionAsync(submission);
 
             // Log the attempt
-            await _loggingService.LogEventAsync(
+            await _loggingService.LogSystemEventAsync(
                 isValid ? "FLAG_SUBMISSION_CORRECT" : "FLAG_SUBMISSION_INCORRECT",
-                userId,
-                challengeId,
-                submittedFlag
+                $"User: {userId}, Challenge: {challengeId}, Flag: {submittedFlag}",
+                Models.LogLevel.Information
             );
 
             if (isValid)
             {
+                // Update user stats
+                var user = await _dbService.GetUserByIdAsync(userId);
+                if (user != null)
+                {
+                    user.TotalPoints += challenge.Points;
+                    user.SolvedChallenges += 1;
+                    await _dbService.UpdateUserAsync(user);
+                }
+
                 _logger.LogInformation("Correct flag submitted for challenge {ChallengeId} by user {UserId}", challengeId, userId);
                 return new FlagValidationResult
                 {

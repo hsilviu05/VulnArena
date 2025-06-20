@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VulnArena.Models;
 using VulnArena.Services;
+using BCrypt.Net;
 
 namespace VulnArena.Web.Controllers;
 
@@ -11,110 +12,113 @@ public class AuthController : ControllerBase
     private readonly ILogger<AuthController> _logger;
     private readonly AuthService _authService;
     private readonly DBService _dbService;
+    private readonly LoggingService _loggingService;
 
     public AuthController(
         ILogger<AuthController> logger,
         AuthService authService,
-        DBService dbService)
+        DBService dbService,
+        LoggingService loggingService)
     {
         _logger = logger;
         _authService = authService;
         _dbService = dbService;
+        _loggingService = loggingService;
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.Username) || 
-                string.IsNullOrWhiteSpace(request.Email) || 
-                string.IsNullOrWhiteSpace(request.Password))
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Email))
             {
-                return BadRequest("Username, email, and password are required");
+                return BadRequest("Username, password, and email are required");
             }
 
-            // Validate email format
-            if (!IsValidEmail(request.Email))
+            // Check if username already exists
+            var existingUser = await _dbService.GetUserByUsernameAsync(request.Username);
+            if (existingUser != null)
             {
-                return BadRequest("Invalid email format");
+                return BadRequest("Username already exists");
             }
 
-            // Validate password strength
-            if (request.Password.Length < 8)
+            // Check if email already exists
+            var existingEmail = await _dbService.GetUserByEmailAsync(request.Email);
+            if (existingEmail != null)
             {
-                return BadRequest("Password must be at least 8 characters long");
+                return BadRequest("Email already exists");
             }
 
-            var ipAddress = GetClientIpAddress();
-            var result = await _authService.RegisterAsync(request.Username, request.Email, request.Password);
-
-            if (result.Success)
+            // Create new user
+            var user = new User
             {
-                return Ok(new
+                Id = Guid.NewGuid().ToString(),
+                Username = request.Username,
+                Email = request.Email,
+                Role = UserRole.User, // Default role
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true
+            };
+
+            // Hash password
+            var salt = BCrypt.Net.BCrypt.GenerateSalt();
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, salt);
+            user.Salt = salt;
+
+            await _dbService.CreateUserAsync(user);
+
+            // Log the registration
+            await _loggingService.LogSystemEventAsync("USER_REGISTERED", $"New user registered: {request.Username}", Models.LogLevel.Information);
+
+            return Ok(new RegisterResponse
+            {
+                Message = "User registered successfully",
+                User = new
                 {
-                    Message = result.Message,
-                    User = new
-                    {
-                        result.User!.Id,
-                        result.User.Username,
-                        result.User.Email,
-                        result.User.CreatedAt,
-                        result.User.Role
-                    }
-                });
-            }
-            else
-            {
-                return BadRequest(new { Message = result.Message });
-            }
+                    user.Id,
+                    user.Username,
+                    user.Email,
+                    user.Role
+                }
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during registration");
+            _logger.LogError(ex, "Error during registration for user {Username}", request.Username);
             return StatusCode(500, "Internal server error");
         }
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            var result = await _authService.LoginAsync(request.Username, request.Password, GetClientIpAddress());
+            if (!result.Success)
             {
-                return BadRequest("Username and password are required");
+                // Log failed login attempt
+                await _loggingService.LogUserLoginAsync(request.Username, false, "Invalid credentials");
+                return Unauthorized("Invalid username or password");
             }
 
-            var ipAddress = GetClientIpAddress();
-            var result = await _authService.LoginAsync(request.Username, request.Password, ipAddress);
+            var user = result.User;
+            var sessionToken = result.SessionToken;
+            
+            // Log successful login
+            await _loggingService.LogUserLoginAsync(user.Id, true);
 
-            if (result.Success)
+            return Ok(new LoginResponse
             {
-                return Ok(new
-                {
-                    Message = result.Message,
-                    SessionToken = result.SessionToken,
-                    User = new
-                    {
-                        result.User!.Id,
-                        result.User.Username,
-                        result.User.Email,
-                        result.User.Role,
-                        result.User.TotalPoints,
-                        result.User.SolvedChallenges,
-                        result.User.LastLoginAt
-                    }
-                });
-            }
-            else
-            {
-                return Unauthorized(new { Message = result.Message });
-            }
+                SessionToken = sessionToken,
+                User = user
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during login");
+            _logger.LogError(ex, "Error during login for user {Username}", request.Username);
+            await _loggingService.LogUserLoginAsync(request.Username, false, ex.Message);
             return StatusCode(500, "Internal server error");
         }
     }
@@ -267,6 +271,36 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpGet("debug-sessions")]
+    public async Task<ActionResult> DebugSessions()
+    {
+        try
+        {
+            // Get all active sessions for debugging
+            var activeSessions = _authService.GetAllActiveSessions();
+            
+            var sessionInfo = activeSessions.Select(kvp => new
+            {
+                Token = kvp.Key,
+                UserId = kvp.Value.UserId,
+                CreatedAt = kvp.Value.CreatedAt,
+                ExpiresAt = kvp.Value.ExpiresAt,
+                IsExpired = kvp.Value.ExpiresAt < DateTime.UtcNow
+            }).ToList();
+
+            return Ok(new { 
+                Message = "Active sessions debug info",
+                TotalSessions = activeSessions.Count,
+                Sessions = sessionInfo
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting debug sessions");
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
     private string GetClientIpAddress()
     {
         // Try to get the real IP address from various headers
@@ -316,4 +350,16 @@ public class ChangePasswordRequest
 {
     public string CurrentPassword { get; set; } = string.Empty;
     public string NewPassword { get; set; } = string.Empty;
+}
+
+public class LoginResponse
+{
+    public string SessionToken { get; set; } = string.Empty;
+    public User User { get; set; } = new();
+}
+
+public class RegisterResponse
+{
+    public string Message { get; set; } = string.Empty;
+    public object User { get; set; } = new();
 } 
